@@ -26,7 +26,7 @@ const vm = new VoiceMark({
 
 ### `vm.challenge(excludePhrase?)`
 
-Draw a challenge phrase from the verse corpus. Pass the previous phrase to avoid repeating it.
+Get a challenge phrase to show the user. Pass the previous phrase to avoid repeating it.
 
 ```ts
 const { phrase, challenge_id, expires_in, source } = await vm.challenge();
@@ -77,7 +77,7 @@ const { token, authorized, transcription } = await vm.verify(blob, {
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `voiceprintId` | string | Enrolled voice ID. Omit for liveness-only check. |
+| `voiceprintId` | string | Enrolled voice ID. Omit to skip identity check. |
 | `challengeId` | string | The `challenge_id` from `/challenge`. |
 
 **Returns:** `VerifyResponse`

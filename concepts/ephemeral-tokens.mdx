@@ -13,8 +13,7 @@ When `/verify` returns `authorized: true`, it also returns a **token** — a sig
   "token_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "authorized": true,
   "pii": null,
-  "expires_in": 60,
-  "liveness_score": 0.97
+  "expires_in": 60
 }
 ```
 
@@ -25,8 +24,7 @@ The JWT payload contains:
 | Field | Type | Description |
 |-------|------|-------------|
 | `jti` | UUID | The `token_id`. Use this in your audit trail. |
-| `sub` | string | The `voiceprint_id` if identity check was performed, or `"anonymous"` for liveness-only. |
-| `liveness` | float | Confidence score (0–1). |
+| `sub` | string | The `voiceprint_id` if identity check was performed, otherwise `"anonymous"`. |
 | `iat` | timestamp | Issued at (Unix seconds). |
 | `exp` | timestamp | Expires at (Unix seconds). `iat + 60`. |
 

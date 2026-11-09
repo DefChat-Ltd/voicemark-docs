@@ -5,7 +5,7 @@ description: Voice authentication as an API. Zero PII. Ephemeral tokens. Three l
 
 ## What is VoiceMark?
 
-VoiceMark lets you add voice-based authentication to any application without storing biometric data. A user speaks a short challenge phrase, the API checks liveness and (optionally) identity, and returns an **ephemeral token** — a 60-second JWT that proves "a live human just spoke here."
+VoiceMark lets you add voice-based authentication to any application without storing biometric data. A user speaks a short challenge phrase, the API returns an **ephemeral token** — a 60-second JWT your backend can use to gate privileged actions.
 
 That token can gate privileged actions: payment approvals, production database writes, identity verification steps.
 
@@ -38,10 +38,10 @@ That token can gate privileged actions: payment approvals, production database w
 
 <Steps>
   <Step title="Get a challenge phrase">
-    Call `POST /challenge` to draw a short phrase from VoiceMark's verse corpus. Show it to the user before they speak — this prevents replay attacks.
+    Call `POST /challenge` to get a short phrase. Show it to the user and ask them to speak it before recording.
   </Step>
   <Step title="Record and verify">
-    Record the user speaking the phrase. Send the audio blob to `POST /verify`. VoiceMark checks liveness (is this a real human?) and optionally identity (is this the enrolled user?).
+    Record the user speaking the phrase. Send the audio to `POST /verify`. The response contains `authorized: true/false` and an ephemeral token.
   </Step>
   <Step title="Use the token">
     The response contains an ephemeral JWT (60s TTL). Pass it to `POST /policy/check` before any privileged action. If the token is valid and the action is permitted, proceed. If not, re-challenge.

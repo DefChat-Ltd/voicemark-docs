@@ -44,13 +44,12 @@ const { result, stop } = await recordVoice({
 const { blob } = await result;
 
 // 3. Verify — returns ephemeral token (60s TTL)
-const { token, authorized, liveness_score } = await vm.verify(blob, {
+const { token, authorized } = await vm.verify(blob, {
   challengeId: challenge_id,
 });
 
-console.log(authorized);       // true
-console.log(liveness_score);   // 0.97
-// token: "eyJhbGci..."        — ephemeral JWT, 60s TTL
+console.log(authorized);  // true
+// token: "eyJhbGci..."   — ephemeral JWT, 60s TTL
 
 // 4. Gate a privileged action
 const { permitted } = await vm.policy(token, "payment.create");
@@ -89,6 +88,6 @@ await vm.receipt(token, "payment.create", "success", {
     Token structure, TTL, and the policy engine.
   </Card>
   <Card title="Challenge phrases" icon="microphone" href="/concepts/challenge-phrases">
-    Why we use verse corpus lines for liveness challenges.
+    How challenge phrases work and when to use them.
   </Card>
 </CardGroup>
