@@ -1,0 +1,399 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "VoiceMark API",
+    "version": "1.0.0",
+    "description": "Voice authentication as an API. Zero PII. Ephemeral tokens. Three lines of code.\n\nAll endpoints require `Authorization: Bearer vmk_live_<32hex>`. No biometric data is stored server-side — ever. Tokens expire after 60 seconds.",
+    "contact": {
+      "name": "VoiceMark",
+      "url": "https://voicemark.dev",
+      "email": "hello@voicemark.me"
+    }
+  },
+  "servers": [
+    { "url": "https://api.voicemark.dev/v1", "description": "Production" }
+  ],
+  "security": [{ "bearerAuth": [] }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "vmk_live_<32hex>",
+        "description": "API key in Bearer format. Format: `vmk_live_` followed by 32 hex characters. Obtain from the VoiceMark dashboard."
+      }
+    },
+    "schemas": {
+      "EnrollResponse": {
+        "type": "object",
+        "required": ["voiceprint_id", "enrolled_at"],
+        "properties": {
+          "voiceprint_id": {
+            "type": "string",
+            "example": "vp_8f3a2c1b4d9e7f2a3b5c",
+            "description": "Opaque identifier for the enrolled voice. Pass this to /verify. No biometric data is stored — this ID references a derived representation only."
+          },
+          "enrolled_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-11-07T14:32:00Z"
+          }
+        }
+      },
+      "ChallengeResponse": {
+        "type": "object",
+        "required": ["phrase", "challenge_id", "expires_in"],
+        "properties": {
+          "phrase": {
+            "type": "string",
+            "example": "If you can wait and not be tired by waiting,",
+            "description": "A short phrase drawn from VoiceMark's corpus of classic verse. The user must speak this phrase aloud. Using unfamiliar archaic text is intentional — human readers produce characteristic hesitations that synthetic voices do not."
+          },
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "expires_in": {
+            "type": "integer",
+            "example": 300,
+            "description": "Seconds until this challenge expires."
+          },
+          "source": {
+            "type": "object",
+            "description": "Attribution metadata for the challenge phrase.",
+            "properties": {
+              "author": { "type": "string", "example": "Rudyard Kipling" },
+              "year": { "type": "string", "example": "1895" },
+              "language": { "type": "string", "example": "en" },
+              "attribution": { "type": "string", "example": "Rudyard Kipling, 1895" }
+            }
+          }
+        }
+      },
+      "VerifyResponse": {
+        "type": "object",
+        "required": ["token", "authorized", "pii", "expires_in"],
+        "properties": {
+          "token": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Ephemeral JWT (60s TTL). Pass this to /policy/check or /receipt. Never store it — it expires and cannot be refreshed."
+          },
+          "token_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for this token. Use with GET /token/{id}."
+          },
+          "authorized": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether the voice passed the liveness and (if enrolled) identity checks."
+          },
+          "pii": {
+            "type": "null",
+            "example": null,
+            "description": "Always null. No personally identifiable information is stored or returned."
+          },
+          "expires_in": {
+            "type": "integer",
+            "example": 60,
+            "description": "Token TTL in seconds."
+          },
+          "liveness_score": {
+            "type": "number",
+            "format": "float",
+            "minimum": 0,
+            "maximum": 1,
+            "example": 0.97,
+            "description": "Confidence that the audio was produced by a live human speaker. Scores above 0.5 are considered live. Displayed in the demo receipt as 'Liveness: 0.97 ✓'."
+          },
+          "transcription": {
+            "type": "string",
+            "example": "If you can wait and not be tired by waiting,",
+            "description": "What the system heard the user say. Empty string if transcription failed."
+          }
+        }
+      },
+      "TokenCheckResponse": {
+        "type": "object",
+        "required": ["valid", "expires_in"],
+        "properties": {
+          "valid": { "type": "boolean", "example": true },
+          "expires_in": { "type": "integer", "example": 42 }
+        }
+      },
+      "PolicyCheckRequest": {
+        "type": "object",
+        "required": ["token", "action"],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The ephemeral JWT from /verify."
+          },
+          "action": {
+            "type": "string",
+            "example": "payment.create",
+            "description": "The action being requested. Format: `resource.verb`. Examples: `db.write.production`, `payment.create`, `admin.user.delete`."
+          }
+        }
+      },
+      "PolicyCheckResponse": {
+        "type": "object",
+        "required": ["permitted"],
+        "properties": {
+          "permitted": { "type": "boolean", "example": true },
+          "reason": {
+            "type": ["string", "null"],
+            "example": null,
+            "description": "Reason for denial if permitted is false. Null when permitted."
+          }
+        }
+      },
+      "ReceiptRequest": {
+        "type": "object",
+        "required": ["token", "action", "result"],
+        "properties": {
+          "token": { "type": "string" },
+          "action": { "type": "string", "example": "payment.create" },
+          "result": {
+            "type": "string",
+            "enum": ["success", "failure"],
+            "example": "success"
+          },
+          "metadata": {
+            "type": ["object", "null"],
+            "description": "Optional structured context. No PII. Stored in the audit log.",
+            "example": { "amount": 50000, "currency": "GBP" }
+          }
+        }
+      },
+      "ReceiptResponse": {
+        "type": "object",
+        "required": ["receipt_id", "logged_at"],
+        "properties": {
+          "receipt_id": {
+            "type": "string",
+            "example": "rcpt_a1b2c3d4e5f6",
+            "description": "Unique identifier for this audit event."
+          },
+          "logged_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-11-07T14:32:01Z"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": ["UNAUTHORIZED", "VOICE_MISMATCH", "TOKEN_EXPIRED", "INVALID_AUDIO", "CHALLENGE_EXPIRED"],
+            "example": "UNAUTHORIZED"
+          },
+          "message": { "type": "string", "example": "Invalid or missing API key." }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/enroll": {
+      "post": {
+        "operationId": "enroll",
+        "summary": "Enrol a user's voice",
+        "description": "Process an audio recording and return a `voiceprint_id`. No audio is stored after processing — only a derived representation. Call this once per user; reuse the `voiceprint_id` on subsequent /verify calls.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["audio", "user_id"],
+                "properties": {
+                  "audio": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Audio recording. Accepts WebM/Opus, WAV, MP3, MP4/AAC."
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "description": "Your internal identifier for this user. Not stored server-side."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Voice enrolled successfully.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EnrollResponse" } } }
+          },
+          "401": {
+            "description": "Invalid or missing API key.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/challenge": {
+      "post": {
+        "operationId": "challenge",
+        "summary": "Generate a challenge phrase",
+        "description": "Draw a short phrase from VoiceMark's verse corpus and return it with a `challenge_id`. Present the phrase to the user before they speak. The challenge prevents replay attacks — a recording made before the challenge was issued cannot satisfy it.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "exclude_phrase": {
+                    "type": "string",
+                    "description": "Phrase to exclude (avoid repeating the last one shown)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Challenge phrase generated.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChallengeResponse" } } }
+          },
+          "401": {
+            "description": "Invalid or missing API key.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/verify": {
+      "post": {
+        "operationId": "verify",
+        "summary": "Verify a voice recording",
+        "description": "Process an audio recording and return an ephemeral JWT token (60s TTL). Checks liveness (is this a real human?) and optionally identity (is this the enrolled user?). Returns `authorized: true` when both checks pass.\n\nNo PII in the response — ever.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["audio"],
+                "properties": {
+                  "audio": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Audio recording of the user speaking the challenge phrase."
+                  },
+                  "voiceprint_id": {
+                    "type": "string",
+                    "description": "Optional. If provided, verifies identity against the enrolled voice. Omit for liveness-only check."
+                  },
+                  "challenge_id": {
+                    "type": "string",
+                    "description": "Optional. The challenge_id from /challenge. Binds this verification to a specific challenge window."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification complete.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyResponse" } } }
+          },
+          "400": {
+            "description": "Challenge expired or invalid audio.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "401": {
+            "description": "Invalid or missing API key.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/token/{token_id}": {
+      "get": {
+        "operationId": "tokenCheck",
+        "summary": "Check token validity",
+        "description": "Returns whether a token is still valid and how many seconds remain. Tokens have a 60-second TTL from issuance.",
+        "parameters": [
+          {
+            "name": "token_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Full JWT string for authoritative validation."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token status.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenCheckResponse" } } }
+          }
+        }
+      }
+    },
+    "/policy/check": {
+      "post": {
+        "operationId": "policyCheck",
+        "summary": "Check whether a token permits an action",
+        "description": "Evaluates a token against the policy engine for a specific action. Returns `permitted: true/false`. Use this before any privileged action — database writes, payment approvals, production deployments.\n\nThe PAM interrupt pattern: `vm.policy.check({ token, action: 'db.write.production' })` fires before the action. If `permitted` is false, block the action and re-challenge.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PolicyCheckRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Policy decision.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PolicyCheckResponse" } } }
+          },
+          "401": {
+            "description": "Invalid or missing API key.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/receipt": {
+      "post": {
+        "operationId": "receipt",
+        "summary": "Log an audit event",
+        "description": "Record a structured audit event tied to a token. No PII is stored — the token_id provides accountability without identifying the speaker. Returns a `receipt_id` for your own audit trail.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReceiptRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt logged.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReceiptResponse" } } }
+          },
+          "401": {
+            "description": "Invalid or missing API key.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    }
+  }
+}

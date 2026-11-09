@@ -1,0 +1,56 @@
+---
+title: Introduction
+description: Voice authentication as an API. Zero PII. Ephemeral tokens. Three lines of code.
+---
+
+## What is VoiceMark?
+
+VoiceMark lets you add voice-based authentication to any application without storing biometric data. A user speaks a short challenge phrase, the API checks liveness and (optionally) identity, and returns an **ephemeral token** — a 60-second JWT that proves "a live human just spoke here."
+
+That token can gate privileged actions: payment approvals, production database writes, identity verification steps.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Enrol a voice and issue your first token in under 5 minutes.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/enroll">
+    Full endpoint reference with request and response schemas.
+  </Card>
+  <Card title="Zero PII" icon="shield-check" href="/concepts/zero-pii">
+    Why we store no biometric data — and how the system still works.
+  </Card>
+  <Card title="JavaScript SDK" icon="js" href="/sdk/javascript">
+    `voicemark-js` — browser and Node SDK with TypeScript types.
+  </Card>
+</CardGroup>
+
+## How it works
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. /challenge   → phrase + challenge_id                     │
+│  2. User speaks  → audio blob                                │
+│  3. /verify      → ephemeral JWT (60s TTL)                   │
+│  4. /policy/check→ permitted: true/false                     │
+│  5. /receipt     → audit event (no PII)                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+<Steps>
+  <Step title="Get a challenge phrase">
+    Call `POST /challenge` to draw a short phrase from VoiceMark's verse corpus. Show it to the user before they speak — this prevents replay attacks.
+  </Step>
+  <Step title="Record and verify">
+    Record the user speaking the phrase. Send the audio blob to `POST /verify`. VoiceMark checks liveness (is this a real human?) and optionally identity (is this the enrolled user?).
+  </Step>
+  <Step title="Use the token">
+    The response contains an ephemeral JWT (60s TTL). Pass it to `POST /policy/check` before any privileged action. If the token is valid and the action is permitted, proceed. If not, re-challenge.
+  </Step>
+  <Step title="Log the receipt">
+    After the action, call `POST /receipt` to log a structured audit event. The token_id provides accountability without storing any PII.
+  </Step>
+</Steps>
+
+## Zero PII guarantee
+
+No audio is stored after processing. No name, email, or identity is ever sent to VoiceMark — only audio, which is processed and discarded. The `pii` field in every response is always `null`. See [Zero PII](/concepts/zero-pii) for the full model.

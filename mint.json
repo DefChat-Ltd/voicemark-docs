@@ -1,0 +1,68 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "VoiceMark",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#c4854a",
+    "light": "#e8a86d",
+    "dark": "#a06030",
+    "background": {
+      "dark": "#141210"
+    }
+  },
+  "topbarLinks": [
+    { "name": "voicemark.me", "url": "https://voicemark.me" }
+  ],
+  "topbarCtaButton": {
+    "name": "Get API Key",
+    "url": "https://voicemark.dev/signup"
+  },
+  "tabs": [
+    { "name": "API Reference", "url": "api-reference" }
+  ],
+  "anchors": [
+    { "name": "GitHub", "icon": "github", "url": "https://github.com/DefChat-Ltd" },
+    { "name": "npm", "icon": "npm", "url": "https://www.npmjs.com/package/voicemark-js" }
+  ],
+  "navigation": [
+    {
+      "group": "Get Started",
+      "pages": ["introduction", "quickstart", "authentication"]
+    },
+    {
+      "group": "Concepts",
+      "pages": ["concepts/zero-pii", "concepts/ephemeral-tokens", "concepts/challenge-phrases", "concepts/policy-engine"]
+    },
+    {
+      "group": "SDK",
+      "pages": ["sdk/javascript", "sdk/python", "sdk/react-example", "sdk/browser-cdn"]
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "api-reference/enroll",
+        "api-reference/challenge",
+        "api-reference/verify",
+        "api-reference/token",
+        "api-reference/policy-check",
+        "api-reference/receipt"
+      ]
+    }
+  ],
+  "api": {
+    "baseUrl": "https://api.voicemark.dev/v1",
+    "auth": {
+      "method": "bearer",
+      "name": "Authorization"
+    }
+  },
+  "openapi": "/openapi.json",
+  "footerSocials": {
+    "twitter": "https://twitter.com/voicemark",
+    "github": "https://github.com/DefChat-Ltd"
+  }
+}

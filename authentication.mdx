@@ -1,0 +1,63 @@
+---
+title: Authentication
+description: API key formats, how to pass them, and test vs live modes.
+---
+
+## API key format
+
+VoiceMark API keys follow a fixed format:
+
+```
+vmk_live_<32 hex characters>   — production key
+vmk_test_<32 hex characters>   — test key (no live voice required)
+```
+
+Both formats use the same endpoints and return the same response shapes. Test keys do not reach the ECAPA-TDNN pipeline — they return deterministic mock responses.
+
+## Passing the key
+
+All requests require an `Authorization: Bearer` header:
+
+```http
+POST /v1/challenge HTTP/1.1
+Host: api.voicemark.me
+Authorization: Bearer vmk_live_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+Content-Type: application/json
+```
+
+There is no cookie-based auth and no query-parameter auth. The key must be in the header.
+
+## JavaScript SDK
+
+```ts
+import { VoiceMark } from "voicemark-js";
+
+const vm = new VoiceMark({ apiKey: "vmk_live_..." });
+// All methods on vm automatically include the header
+```
+
+## Security
+
+<Warning>
+  API keys are long-lived credentials. If a key is exposed, rotate it from the dashboard immediately.
+</Warning>
+
+**Never** include a live key in:
+- Client-side JavaScript served from a public page
+- A mobile app binary
+- A public GitHub repository
+
+For browser-based demos, use a test key (`vmk_test_...`) or proxy requests through your own backend. The demo page at [voicemark.dev](https://voicemark.dev) uses a rate-limited demo key that is intentionally public.
+
+## Error responses
+
+If the key is missing or invalid, every endpoint returns:
+
+```json
+{
+  "code": "UNAUTHORIZED",
+  "message": "Invalid or missing API key."
+}
+```
+
+HTTP status: `401`.

@@ -1,0 +1,94 @@
+---
+title: Quickstart
+description: Enrol a voice and issue your first token in under 5 minutes.
+---
+
+## Get an API key
+
+Go to [voicemark.dev/signup](https://voicemark.dev/signup) and create an account. Your API key will be in the format `vmk_live_<32hex>`.
+
+<Warning>
+  Keep your API key secret. It is a Bearer token — anyone who holds it can call the API under your account. Never expose it in client-side code in production.
+</Warning>
+
+## Install the SDK
+
+<CodeGroup>
+```bash npm
+npm install voicemark-js
+```
+```bash yarn
+yarn add voicemark-js
+```
+```bash pnpm
+pnpm add voicemark-js
+```
+</CodeGroup>
+
+## Your first verification
+
+```ts
+import { VoiceMark, recordVoice } from "voicemark-js";
+
+const vm = new VoiceMark({ apiKey: "vmk_live_..." });
+
+// 1. Get a challenge phrase
+const { phrase, challenge_id } = await vm.challenge();
+showToUser(phrase); // "If you can wait and not be tired by waiting,"
+
+// 2. Record the user speaking the phrase
+const { result, stop } = await recordVoice({
+  onLevelUpdate: (rms) => drawWaveform(rms),
+});
+// ... user speaks ...
+const { blob } = await result;
+
+// 3. Verify — returns ephemeral token (60s TTL)
+const { token, authorized, liveness_score } = await vm.verify(blob, {
+  challengeId: challenge_id,
+});
+
+console.log(authorized);       // true
+console.log(liveness_score);   // 0.97
+// token: "eyJhbGci..."        — ephemeral JWT, 60s TTL
+
+// 4. Gate a privileged action
+const { permitted } = await vm.policy(token, "payment.create");
+if (!permitted) return showError("Voice verification required.");
+
+// proceed with the action...
+
+// 5. Log the audit receipt
+await vm.receipt(token, "payment.create", "success", {
+  amount: 5000,
+  currency: "GBP",
+});
+```
+
+## Browser CDN (no bundler)
+
+```html
+<script type="module">
+  import { VoiceMark, recordVoice } from "https://cdn.jsdelivr.net/npm/voicemark-js/dist/index.js";
+
+  const vm = new VoiceMark({ apiKey: "vmk_live_..." });
+  // same API as above
+</script>
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/authentication">
+    API key formats and scopes.
+  </Card>
+  <Card title="Zero PII" icon="shield" href="/concepts/zero-pii">
+    How the system works without storing biometric data.
+  </Card>
+  <Card title="Ephemeral tokens" icon="clock" href="/concepts/ephemeral-tokens">
+    Token structure, TTL, and the policy engine.
+  </Card>
+  <Card title="Challenge phrases" icon="microphone" href="/concepts/challenge-phrases">
+    Why we use verse corpus lines for liveness challenges.
+  </Card>
+</CardGroup>

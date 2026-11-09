@@ -1,0 +1,35 @@
+---
+title: Zero PII
+description: How VoiceMark provides strong authentication without storing any biometric data.
+---
+
+## The guarantee
+
+VoiceMark stores **no biometric data** — ever. This is not a policy commitment that might change. It is a structural property of how the system works.
+
+The `pii` field in every API response is `null`. There is no route that returns biometric data, no admin endpoint that exposes it, and no database table that holds it. The audio sent to `/verify` is processed and discarded within the request lifetime.
+
+## What we do store
+
+The only persistent state VoiceMark holds about a user is a **voiceprint_id** — an opaque string derived from your internal `user_id`. It references a compact derived representation (not the raw ECAPA-TDNN embedding) that makes verification possible but cannot reconstruct the original voice.
+
+That representation is:
+- Stored against your `user_id`, not against any name or email
+- Never returned in API responses
+- Not linkable to the user outside your system
+
+## Why this matters for GDPR and CCPA
+
+Under GDPR, biometric data is a **special category** requiring explicit consent, a lawful basis, and a data protection impact assessment. By storing nothing, VoiceMark removes this category from your compliance scope.
+
+Your integration receives a token (a JWT), not a voice. You log the token_id in your audit trail. VoiceMark holds the voiceprint_id, which references your `user_id` — a string you control and can delete.
+
+## The challenge phrase design
+
+The challenge phrase approach also serves a privacy purpose. Because the user speaks a novel phrase drawn at the moment of the challenge, it is not possible to pre-record a response. The phrase is drawn from a corpus of classic verse — lines that a fluent human speaker can read naturally, but that a text-to-speech system renders with detectable uniformity.
+
+See [Challenge Phrases](/concepts/challenge-phrases) for the full model.
+
+## Audit receipts without identity
+
+The `/receipt` endpoint logs structured audit events tied to a `token_id`. The token_id is a UUID issued at verification time — it proves "someone passed liveness at this moment" without identifying who. Your audit trail can hold `{ action: "payment.create", result: "success", token_id: "..." }` and satisfy regulatory requirements without storing a name or biometric.

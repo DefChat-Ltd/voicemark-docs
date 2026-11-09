@@ -1,0 +1,317 @@
+---
+title: Python SDK
+description: voicemark-python — full API reference for sync and async Python clients.
+---
+
+## Installation
+
+```bash
+pip install voicemark
+```
+
+Python 3.9+ required. No optional extras needed — `httpx` is the only runtime dependency.
+
+## Clients
+
+The SDK ships two clients: `AsyncVoiceMark` (async-first, recommended for FastAPI / async Django) and `VoiceMark` (sync, for scripts and Flask).
+
+### `VoiceMark(api_key, base_url?)`
+
+```python
+from voicemark import VoiceMark
+
+vm = VoiceMark(api_key="vmk_live_...")
+# Optional:
+vm = VoiceMark(api_key="vmk_live_...", base_url="https://api.voicemark.me/v1")
+```
+
+Use as a context manager to close the connection pool cleanly:
+
+```python
+with VoiceMark(api_key="vmk_live_...") as vm:
+    enrollment = vm.enroll(audio_bytes, user_id="user_42")
+```
+
+### `AsyncVoiceMark(api_key, base_url?)`
+
+```python
+from voicemark import AsyncVoiceMark
+
+async with AsyncVoiceMark(api_key="vmk_live_...") as vm:
+    enrollment = await vm.enroll(audio_bytes, user_id="user_42")
+```
+
+## Audio input
+
+All methods that take audio accept:
+
+| Type | Example |
+|------|---------|
+| `bytes` / `bytearray` | `open("recording.wav", "rb").read()` |
+| `pathlib.Path` | `Path("recording.webm")` |
+| file-like (`BinaryIO`) | `open("recording.mp3", "rb")` |
+
+Supported formats: WebM/Opus, WAV, MP3, MP4/AAC, OGG.
+
+---
+
+## Methods
+
+### `vm.enroll(audio, user_id)`
+
+Enrol a user's voice. No audio is stored after processing — the voiceprint is a compact embedding, not a recording.
+
+```python
+from voicemark import VoiceMark
+from pathlib import Path
+
+vm = VoiceMark(api_key="vmk_live_...")
+enrollment = vm.enroll(Path("recording.wav"), user_id="user_42")
+
+# Store enrollment.voiceprint_id in your database
+print(enrollment.voiceprint_id)   # "vp_..."
+print(enrollment.quality_score)   # 0.91 — recommend > 0.75
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `audio` | `AudioInput` | Audio file (bytes, Path, or file-like). |
+| `user_id` | `str` | Your internal user identifier. Not stored server-side. |
+
+**Returns:** `EnrollResponse`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `voiceprint_id` | `str` | Store this — pass to `verify()` for identity checks. |
+| `enrolled_at` | `str` | ISO 8601 timestamp. |
+| `quality_score` | `float` | 0–1. Recommend retrying enrolment if below 0.75. |
+| `duration_s` | `float` | Duration of the submitted audio in seconds. |
+| `glyph_params` | `dict` | Voice glyph parameters for display (optional use). |
+
+---
+
+### `vm.challenge(exclude_phrase?)`
+
+Draw a challenge phrase from VoiceMark's verse corpus. Show this to the user before they speak — it prevents replay attacks.
+
+```python
+challenge = vm.challenge()
+print(challenge.phrase)        # "Whose woods these are I think I know."
+print(challenge.challenge_id)  # pass to verify()
+print(challenge.expires_in)    # 300 (seconds)
+print(challenge.source.attribution)  # "Robert Frost, 1923"
+
+# Avoid repeating the same phrase in a session:
+next_challenge = vm.challenge(exclude_phrase=challenge.phrase)
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `exclude_phrase` | `str \| None` | Previous phrase to exclude (optional). |
+
+**Returns:** `ChallengeResponse`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `phrase` | `str` | The phrase to show the user. |
+| `challenge_id` | `str` | UUID — pass to `verify()` to bind the recording to this challenge. |
+| `expires_in` | `int` | Seconds until this challenge expires (default: 300). |
+| `source` | `ChallengeSource \| None` | Attribution metadata. |
+
+**`ChallengeSource` fields:** `title`, `author`, `year`, `language`, `attribution` (all optional strings).
+
+---
+
+### `vm.verify(audio, *, voiceprint_id?, challenge_id?)`
+
+Verify a voice recording. Returns an ephemeral JWT token (60 s TTL).
+
+```python
+from pathlib import Path
+
+result = vm.verify(
+    Path("response.webm"),
+    voiceprint_id=enrollment.voiceprint_id,  # optional: identity check
+    challenge_id=challenge.challenge_id,      # optional: anti-replay
+)
+
+if result.authorized:
+    print(result.token)         # ephemeral JWT — pass to your backend
+    print(result.liveness_score)  # 0.94
+    print(result.transcription)   # "whose woods these are I think I know"
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `audio` | `AudioInput` | The recorded response audio. |
+| `voiceprint_id` | `str \| None` | Enrolled voice ID. Omit for liveness-only check. |
+| `challenge_id` | `str \| None` | The `challenge_id` from `challenge()`. |
+
+**Returns:** `VerifyResponse`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `token` | `str` | Ephemeral JWT (60 s TTL). |
+| `token_id` | `str` | UUID — use in your audit trail. |
+| `authorized` | `bool` | `True` if liveness (and identity if enrolled) passed. |
+| `pii` | `None` | Always `None`. |
+| `expires_in` | `int` | Seconds until the token expires. |
+| `liveness_score` | `float \| None` | 0–1 confidence that this is a live human speaker. |
+| `transcription` | `str \| None` | What the system heard. |
+
+---
+
+### `vm.policy(token, action)`
+
+Check whether a token permits a named action. Call this on your backend before any privileged operation.
+
+```python
+check = vm.policy(result.token, "payment.create")
+if check.permitted:
+    process_payment()
+else:
+    print(check.reason)  # e.g. "token_expired"
+```
+
+**Action format:** `resource.verb` or `resource.verb.scope`. Examples: `payment.create`, `db.write.production`, `admin.user.delete`.
+
+**Returns:** `PolicyCheckResponse`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `permitted` | `bool` | Whether the action is allowed. |
+| `reason` | `str \| None` | Denial reason when `permitted` is `False`. |
+
+---
+
+### `vm.token(token_id, token_jwt?)`
+
+Check whether a token is still valid and how many seconds remain. Pass the full JWT for authoritative signature + expiry validation.
+
+```python
+status = vm.token(result.token_id, result.token)
+print(status.valid)       # True
+print(status.expires_in)  # 47
+```
+
+**Returns:** `TokenCheckResponse`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `valid` | `bool` | Whether the token is currently valid. |
+| `expires_in` | `int` | Seconds until expiry (0 if already expired). |
+
+---
+
+### `vm.receipt(token, action, result, metadata?)`
+
+Log an audit event tied to a token. No PII is stored — the `token_id` provides accountability without identifying the speaker.
+
+```python
+receipt = vm.receipt(
+    result.token,
+    action="payment.create",
+    result="success",
+    metadata={"amount": 5000, "currency": "GBP"},
+)
+print(receipt.receipt_id)  # UUID
+print(receipt.logged_at)   # ISO 8601
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `token` | `str` | The JWT from `verify()`. |
+| `action` | `str` | The action that was performed. |
+| `result` | `str` | Outcome string, e.g. `"success"` or `"denied"`. |
+| `metadata` | `dict \| None` | Arbitrary non-PII context. |
+
+**Returns:** `ReceiptResponse`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `receipt_id` | `str` | UUID for this audit record. |
+| `logged_at` | `str` | ISO 8601 timestamp. |
+
+---
+
+## Async usage
+
+Every method on `AsyncVoiceMark` is the `await`-able equivalent:
+
+```python
+import asyncio
+from pathlib import Path
+from voicemark import AsyncVoiceMark
+
+async def run_verification():
+    async with AsyncVoiceMark(api_key="vmk_live_...") as vm:
+        challenge = await vm.challenge()
+
+        result = await vm.verify(
+            Path("response.webm"),
+            challenge_id=challenge.challenge_id,
+        )
+
+        if result.authorized:
+            check = await vm.policy(result.token, "document.sign")
+            if check.permitted:
+                await vm.receipt(result.token, "document.sign", "success")
+
+asyncio.run(run_verification())
+```
+
+## Error handling
+
+All methods raise `VoiceMarkError` on failure:
+
+```python
+from voicemark import VoiceMark, VoiceMarkError
+
+try:
+    result = vm.verify(audio, challenge_id=challenge_id)
+except VoiceMarkError as err:
+    match err.code:
+        case "CHALLENGE_EXPIRED":
+            # Re-fetch a challenge and retry
+            pass
+        case "UNAUTHORIZED":
+            # API key problem
+            pass
+        case "AUDIO_TOO_SHORT":
+            # Ask the user to speak for longer
+            pass
+        case "LOW_VOICE_SIGNAL":
+            # Ask the user to move closer to the microphone
+            pass
+```
+
+**`VoiceMarkError` attributes:**
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `code` | `str` | Machine-readable error code (see table below). |
+| `status` | `int \| None` | HTTP status code from the API. |
+| `args[0]` | `str` | Human-readable error message. |
+
+**Error codes:**
+
+| Code | Meaning |
+|------|---------|
+| `UNAUTHORIZED` | Invalid or missing API key. |
+| `VOICE_MISMATCH` | Speaker does not match the enrolled voiceprint. |
+| `TOKEN_EXPIRED` | The JWT token has expired. |
+| `INVALID_AUDIO` | Audio format not recognised or file corrupt. |
+| `AUDIO_TOO_SHORT` | Recording too short for analysis. |
+| `AUDIO_TOO_QUIET` | Signal too quiet — microphone gain or distance issue. |
+| `LOW_VOICE_SIGNAL` | Voice detected but signal quality insufficient. |
+| `CHALLENGE_EXPIRED` | Challenge phrase window has elapsed — issue a new one. |
+| `NETWORK_ERROR` | Connection to the VoiceMark API failed. |
+| `PIPELINE_UNAVAILABLE` | Liveness or speaker pipeline temporarily unavailable. |

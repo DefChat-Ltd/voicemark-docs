@@ -1,0 +1,69 @@
+---
+title: Ephemeral Tokens
+description: 60-second JWTs — what they are, how to use them, and why they can't be refreshed.
+---
+
+## What is an ephemeral token?
+
+When `/verify` returns `authorized: true`, it also returns a **token** — a signed JWT with a 60-second TTL. The token proves "a live human just spoke here, at this moment."
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "authorized": true,
+  "pii": null,
+  "expires_in": 60,
+  "liveness_score": 0.97
+}
+```
+
+## Token structure
+
+The JWT payload contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `jti` | UUID | The `token_id`. Use this in your audit trail. |
+| `sub` | string | The `voiceprint_id` if identity check was performed, or `"anonymous"` for liveness-only. |
+| `liveness` | float | Confidence score (0–1). |
+| `iat` | timestamp | Issued at (Unix seconds). |
+| `exp` | timestamp | Expires at (Unix seconds). `iat + 60`. |
+
+## The PAM interrupt pattern
+
+The intended use pattern is to issue a token immediately before a high-stakes action:
+
+```ts
+// Just before the sensitive action:
+const { token } = await vm.verify(audioBlob, { challengeId });
+const { permitted } = await vm.policy(token, "db.write.production");
+
+if (!permitted) {
+  // Token expired or voice check failed — re-challenge
+  return startNewChallenge();
+}
+
+// Proceed with the action
+await db.write(...);
+await vm.receipt(token, "db.write.production", "success");
+```
+
+The 60-second window is intentional — short enough that an intercepted token cannot be replayed in a useful context, long enough to cover the action being gated.
+
+## Tokens cannot be refreshed
+
+There is no refresh endpoint. This is deliberate. If the token expires before the action completes, re-challenge.
+
+The re-challenge is cheap — `/challenge` returns a phrase in milliseconds, and a focused user can speak it in under 5 seconds. The friction is proportional to the stakes of the action being gated.
+
+## Checking token validity
+
+Use `GET /token/{token_id}/validate` to check whether a token is still valid and how many seconds remain. Pass the full JWT string as a query parameter for authoritative decode validation.
+
+```ts
+const { valid, expires_in } = await vm.token(token_id, token);
+// valid: true, expires_in: 42
+```
+
+You can also decode the JWT yourself — it is a standard HMAC-SHA256 JWT and verifies against the VoiceMark public key (available on request for on-premises integrations).

@@ -1,0 +1,177 @@
+---
+title: JavaScript / TypeScript SDK
+description: voicemark-js — full API reference for the browser and Node SDK.
+---
+
+## Installation
+
+```bash
+npm install voicemark-js
+```
+
+TypeScript types are included. No separate `@types/` package needed.
+
+## `new VoiceMark(config)`
+
+```ts
+import { VoiceMark } from "voicemark-js";
+
+const vm = new VoiceMark({
+  apiKey: "vmk_live_...",       // required
+  baseUrl: "https://api.voicemark.me/v1",  // optional override
+});
+```
+
+## Methods
+
+### `vm.challenge(excludePhrase?)`
+
+Draw a challenge phrase from the verse corpus. Pass the previous phrase to avoid repeating it.
+
+```ts
+const { phrase, challenge_id, expires_in, source } = await vm.challenge();
+// source.attribution → "Rudyard Kipling, 1895"
+```
+
+**Returns:** `ChallengeResponse`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `phrase` | string | The phrase to show the user. |
+| `challenge_id` | UUID | Pass to `/verify` to bind the recording to this challenge. |
+| `expires_in` | number | Seconds until this challenge expires (default: 300). |
+| `source` | object | `{ author, year, attribution }` for display. |
+
+---
+
+### `vm.enroll(audio, userId)`
+
+Enrol a voice. Returns a `voiceprint_id` — store it and pass to `verify()` for identity checks. Call once per user; reuse the ID on subsequent verifications.
+
+```ts
+const { voiceprint_id, enrolled_at } = await vm.enroll(blob, "user_42");
+// Store voiceprint_id in your database
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `audio` | Blob \| File | WebM/Opus, WAV, MP3, or MP4/AAC. |
+| `userId` | string | Your internal user identifier. Not stored server-side. |
+
+---
+
+### `vm.verify(audio, options?)`
+
+Verify a voice recording. Returns an ephemeral JWT token (60s TTL).
+
+```ts
+const { token, authorized, liveness_score, transcription } = await vm.verify(blob, {
+  voiceprintId: "vp_...",   // optional: identity check
+  challengeId: challenge_id, // optional: anti-replay binding
+});
+```
+
+**Options:**
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `voiceprintId` | string | Enrolled voice ID. Omit for liveness-only check. |
+| `challengeId` | string | The `challenge_id` from `/challenge`. |
+
+**Returns:** `VerifyResponse`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `token` | string | Ephemeral JWT (60s TTL). |
+| `token_id` | UUID | Use in your audit trail. |
+| `authorized` | boolean | `true` if liveness (and identity if enrolled) passed. |
+| `pii` | null | Always null. |
+| `liveness_score` | number | 0–1 confidence that this is a live human speaker. |
+| `transcription` | string | What the system heard. Empty string if unavailable. |
+
+---
+
+### `vm.policy(token, action)`
+
+Check whether a token permits a named action. Returns `permitted: true/false`.
+
+```ts
+const { permitted, reason } = await vm.policy(token, "payment.create");
+```
+
+**Action format:** `resource.verb` or `resource.verb.scope`. Examples: `payment.create`, `db.write.production`, `admin.user.delete`.
+
+---
+
+### `vm.token(tokenId, tokenJwt?)`
+
+Check token validity. Pass the full JWT string for authoritative validation.
+
+```ts
+const { valid, expires_in } = await vm.token(token_id, token);
+```
+
+---
+
+### `vm.receipt(token, action, result, metadata?)`
+
+Log an audit event. No PII stored.
+
+```ts
+await vm.receipt(token, "payment.create", "success", {
+  amount: 5000,
+  currency: "GBP",
+});
+```
+
+---
+
+### `recordVoice(options?)`
+
+Browser-only utility. Records from the microphone, auto-stops on silence or max duration.
+
+```ts
+const { result, stop } = await recordVoice({
+  maxDurationMs: 10_000,
+  silenceThreshold: 0.015,
+  silenceDurationMs: 1_500,
+  onLevelUpdate: (rms) => drawWaveform(rms),
+  onStop: () => setRecordingComplete(true),
+});
+
+// User speaks...
+// Stop manually:
+stop();
+
+const { blob, durationMs, mimeType } = await result;
+```
+
+## Error handling
+
+All methods throw `VoiceMarkError` on failure:
+
+```ts
+import { VoiceMarkError } from "voicemark-js";
+
+try {
+  const r = await vm.verify(blob, { challengeId });
+} catch (err) {
+  if (err instanceof VoiceMarkError) {
+    switch (err.code) {
+      case "CHALLENGE_EXPIRED":
+        // Re-fetch a challenge and retry
+        break;
+      case "UNAUTHORIZED":
+        // API key problem
+        break;
+      case "MICROPHONE_DENIED":
+        // User denied microphone access
+        break;
+    }
+  }
+}
+```
+
+**Error codes:** `UNAUTHORIZED`, `VOICE_MISMATCH`, `TOKEN_EXPIRED`, `INVALID_AUDIO`, `CHALLENGE_EXPIRED`, `NETWORK_ERROR`, `MICROPHONE_DENIED`
