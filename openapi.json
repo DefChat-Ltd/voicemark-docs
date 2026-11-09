@@ -47,7 +47,7 @@
           "phrase": {
             "type": "string",
             "example": "If you can wait and not be tired by waiting,",
-            "description": "A short phrase drawn from VoiceMark's corpus of classic verse. The user must speak this phrase aloud. Using unfamiliar archaic text is intentional — human readers produce characteristic hesitations that synthetic voices do not."
+            "description": "Show this to the user and ask them to speak it aloud before recording."
           },
           "challenge_id": {
             "type": "string",
@@ -88,7 +88,7 @@
           "authorized": {
             "type": "boolean",
             "example": true,
-            "description": "Whether the voice passed the liveness and (if enrolled) identity checks."
+            "description": "Gate all application logic on this field. `true` means the check passed."
           },
           "pii": {
             "type": "null",
@@ -100,18 +100,10 @@
             "example": 60,
             "description": "Token TTL in seconds."
           },
-          "liveness_score": {
-            "type": "number",
-            "format": "float",
-            "minimum": 0,
-            "maximum": 1,
-            "example": 0.97,
-            "description": "Confidence that the audio was produced by a live human speaker. Scores above 0.5 are considered live. Displayed in the demo receipt as 'Liveness: 0.97 ✓'."
-          },
           "transcription": {
             "type": "string",
             "example": "If you can wait and not be tired by waiting,",
-            "description": "What the system heard the user say. Empty string if transcription failed."
+            "description": "What the system heard. Use to show the user what was recognised. Empty string if unavailable."
           }
         }
       },
@@ -274,7 +266,7 @@
       "post": {
         "operationId": "verify",
         "summary": "Verify a voice recording",
-        "description": "Process an audio recording and return an ephemeral JWT token (60s TTL). Checks liveness (is this a real human?) and optionally identity (is this the enrolled user?). Returns `authorized: true` when both checks pass.\n\nNo PII in the response — ever.",
+        "description": "Process an audio recording and return an ephemeral JWT token (60s TTL). Returns `authorized: true/false`. No PII in the response — ever.",
         "requestBody": {
           "required": true,
           "content": {

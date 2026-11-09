@@ -70,7 +70,7 @@ enrollment = vm.enroll(Path("recording.wav"), user_id="user_42")
 
 # Store enrollment.voiceprint_id in your database
 print(enrollment.voiceprint_id)   # "vp_..."
-print(enrollment.quality_score)   # 0.91 — recommend > 0.75
+print(enrollment.quality_score)   # audio quality indicator
 ```
 
 **Parameters:**
@@ -86,9 +86,8 @@ print(enrollment.quality_score)   # 0.91 — recommend > 0.75
 |-------|------|-------------|
 | `voiceprint_id` | `str` | Store this — pass to `verify()` for identity checks. |
 | `enrolled_at` | `str` | ISO 8601 timestamp. |
-| `quality_score` | `float` | 0–1. Recommend retrying enrolment if below 0.75. |
+| `quality_score` | `float` | Audio quality indicator. Consider re-recording if score is low. |
 | `duration_s` | `float` | Duration of the submitted audio in seconds. |
-| `glyph_params` | `dict` | Voice glyph parameters for display (optional use). |
 
 ---
 
@@ -140,9 +139,8 @@ result = vm.verify(
 )
 
 if result.authorized:
-    print(result.token)         # ephemeral JWT — pass to your backend
-    print(result.liveness_score)  # 0.94
-    print(result.transcription)   # "whose woods these are I think I know"
+    print(result.token)          # ephemeral JWT — pass to your backend
+    print(result.transcription)  # "whose woods these are I think I know"
 ```
 
 **Parameters:**
@@ -150,7 +148,7 @@ if result.authorized:
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `audio` | `AudioInput` | The recorded response audio. |
-| `voiceprint_id` | `str \| None` | Enrolled voice ID. Omit for liveness-only check. |
+| `voiceprint_id` | `str \| None` | Enrolled voice ID. Omit to skip identity check. |
 | `challenge_id` | `str \| None` | The `challenge_id` from `challenge()`. |
 
 **Returns:** `VerifyResponse`
@@ -159,11 +157,10 @@ if result.authorized:
 |-------|------|-------------|
 | `token` | `str` | Ephemeral JWT (60 s TTL). |
 | `token_id` | `str` | UUID — use in your audit trail. |
-| `authorized` | `bool` | `True` if liveness (and identity if enrolled) passed. |
+| `authorized` | `bool` | Gate all application logic on this field. |
 | `pii` | `None` | Always `None`. |
 | `expires_in` | `int` | Seconds until the token expires. |
-| `liveness_score` | `float \| None` | 0–1 confidence that this is a live human speaker. |
-| `transcription` | `str \| None` | What the system heard. |
+| `transcription` | `str \| None` | What the system heard. Use for display only. |
 
 ---
 
@@ -303,15 +300,15 @@ except VoiceMarkError as err:
 
 **Error codes:**
 
-| Code | Meaning |
-|------|---------|
-| `UNAUTHORIZED` | Invalid or missing API key. |
-| `VOICE_MISMATCH` | Speaker does not match the enrolled voiceprint. |
-| `TOKEN_EXPIRED` | The JWT token has expired. |
-| `INVALID_AUDIO` | Audio format not recognised or file corrupt. |
-| `AUDIO_TOO_SHORT` | Recording too short for analysis. |
-| `AUDIO_TOO_QUIET` | Signal too quiet — microphone gain or distance issue. |
-| `LOW_VOICE_SIGNAL` | Voice detected but signal quality insufficient. |
-| `CHALLENGE_EXPIRED` | Challenge phrase window has elapsed — issue a new one. |
-| `NETWORK_ERROR` | Connection to the VoiceMark API failed. |
-| `PIPELINE_UNAVAILABLE` | Liveness or speaker pipeline temporarily unavailable. |
+| Code | What to do |
+|------|-----------|
+| `UNAUTHORIZED` | Check your API key. |
+| `VOICE_MISMATCH` | Verification failed — do not issue the token. |
+| `TOKEN_EXPIRED` | The token has expired — re-verify if needed. |
+| `INVALID_AUDIO` | Audio not usable — check format (WebM, WAV, MP3). |
+| `AUDIO_TOO_SHORT` | Ask the user to speak the full phrase. |
+| `AUDIO_TOO_QUIET` | Ask the user to speak up or move closer to the mic. |
+| `LOW_VOICE_SIGNAL` | Recording quality too low — ask the user to retry. |
+| `CHALLENGE_EXPIRED` | Challenge window elapsed — fetch a new challenge and retry. |
+| `NETWORK_ERROR` | Connection failed — retry with backoff. |
+| `PIPELINE_UNAVAILABLE` | Service temporarily unavailable — retry after a short delay. |
