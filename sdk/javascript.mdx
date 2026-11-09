@@ -30,7 +30,7 @@ Get a challenge phrase to show the user. Pass the previous phrase to avoid repea
 
 ```ts
 const { phrase, challenge_id, expires_in, source } = await vm.challenge();
-// source.attribution → "Rudyard Kipling, 1895"
+// source.attribution → "Attribution string for display, if available"
 ```
 
 **Returns:** `ChallengeResponse`
@@ -69,7 +69,7 @@ Verify a voice recording. Returns an ephemeral JWT token (60s TTL).
 ```ts
 const { token, authorized, transcription } = await vm.verify(blob, {
   voiceprintId: "vp_...",   // optional: identity check
-  challengeId: challenge_id, // optional: anti-replay binding
+  challengeId: challenge_id, // recommended
 });
 ```
 

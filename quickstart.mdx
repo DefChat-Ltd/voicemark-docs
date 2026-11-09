@@ -34,7 +34,7 @@ const vm = new VoiceMark({ apiKey: "vmk_live_..." });
 
 // 1. Get a challenge phrase
 const { phrase, challenge_id } = await vm.challenge();
-showToUser(phrase); // "If you can wait and not be tired by waiting,"
+showToUser(phrase); // "The river bends around the old stone bridge."
 
 // 2. Record the user speaking the phrase
 const { result, stop } = await recordVoice({

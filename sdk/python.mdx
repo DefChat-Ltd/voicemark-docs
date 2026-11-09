@@ -97,10 +97,10 @@ Get a challenge phrase and show it to the user before they speak.
 
 ```python
 challenge = vm.challenge()
-print(challenge.phrase)        # "Whose woods these are I think I know."
+print(challenge.phrase)        # "The river bends around the old stone bridge."
 print(challenge.challenge_id)  # pass to verify()
 print(challenge.expires_in)    # 300 (seconds)
-print(challenge.source.attribution)  # "Robert Frost, 1923"
+print(challenge.source.attribution)  # attribution string for display, if present
 
 # Avoid repeating the same phrase in a session:
 next_challenge = vm.challenge(exclude_phrase=challenge.phrase)
@@ -135,7 +135,7 @@ from pathlib import Path
 result = vm.verify(
     Path("response.webm"),
     voiceprint_id=enrollment.voiceprint_id,  # optional: identity check
-    challenge_id=challenge.challenge_id,      # optional: anti-replay
+    challenge_id=challenge.challenge_id,      # recommended
 )
 
 if result.authorized:

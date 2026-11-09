@@ -46,7 +46,7 @@
         "properties": {
           "phrase": {
             "type": "string",
-            "example": "If you can wait and not be tired by waiting,",
+            "example": "The river bends around the old stone bridge.",
             "description": "Show this to the user and ask them to speak it aloud before recording."
           },
           "challenge_id": {
@@ -63,10 +63,10 @@
             "type": "object",
             "description": "Attribution metadata for the challenge phrase.",
             "properties": {
-              "author": { "type": "string", "example": "Rudyard Kipling" },
-              "year": { "type": "string", "example": "1895" },
+              "author": { "type": "string", "example": "optional author string" },
+              "year": { "type": "string", "example": "optional year string" },
               "language": { "type": "string", "example": "en" },
-              "attribution": { "type": "string", "example": "Rudyard Kipling, 1895" }
+              "attribution": { "type": "string", "example": "optional display attribution" }
             }
           }
         }
@@ -102,7 +102,7 @@
           },
           "transcription": {
             "type": "string",
-            "example": "If you can wait and not be tired by waiting,",
+            "example": "The river bends around the old stone bridge.",
             "description": "What the system heard. Use to show the user what was recognised. Empty string if unavailable."
           }
         }
@@ -234,7 +234,7 @@
       "post": {
         "operationId": "challenge",
         "summary": "Generate a challenge phrase",
-        "description": "Draw a short phrase from VoiceMark's verse corpus and return it with a `challenge_id`. Present the phrase to the user before they speak. The challenge prevents replay attacks — a recording made before the challenge was issued cannot satisfy it.",
+        "description": "Get a short text phrase to present to the user. Ask them to speak it before recording. Pass the returned `challenge_id` to `/verify` to bind the recording to this request.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -282,7 +282,7 @@
                   },
                   "voiceprint_id": {
                     "type": "string",
-                    "description": "Optional. If provided, verifies identity against the enrolled voice. Omit for liveness-only check."
+                    "description": "Optional. Enrolled voice ID from `/enroll`. Omit to skip identity check."
                   },
                   "challenge_id": {
                     "type": "string",
