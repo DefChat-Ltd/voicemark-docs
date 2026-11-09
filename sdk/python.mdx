@@ -100,7 +100,6 @@ challenge = vm.challenge()
 print(challenge.phrase)        # "The river bends around the old stone bridge."
 print(challenge.challenge_id)  # pass to verify()
 print(challenge.expires_in)    # 300 (seconds)
-print(challenge.source.attribution)  # attribution string for display, if present
 
 # Avoid repeating the same phrase in a session:
 next_challenge = vm.challenge(exclude_phrase=challenge.phrase)
@@ -119,9 +118,6 @@ next_challenge = vm.challenge(exclude_phrase=challenge.phrase)
 | `phrase` | `str` | The phrase to show the user. |
 | `challenge_id` | `str` | UUID — pass to `verify()` to bind the recording to this challenge. |
 | `expires_in` | `int` | Seconds until this challenge expires (default: 300). |
-| `source` | `ChallengeSource \| None` | Attribution metadata. |
-
-**`ChallengeSource` fields:** `title`, `author`, `year`, `language`, `attribution` (all optional strings).
 
 ---
 

@@ -29,8 +29,7 @@ const vm = new VoiceMark({
 Get a challenge phrase to show the user. Pass the previous phrase to avoid repeating it.
 
 ```ts
-const { phrase, challenge_id, expires_in, source } = await vm.challenge();
-// source.attribution → "Attribution string for display, if available"
+const { phrase, challenge_id, expires_in } = await vm.challenge();
 ```
 
 **Returns:** `ChallengeResponse`
@@ -40,7 +39,6 @@ const { phrase, challenge_id, expires_in, source } = await vm.challenge();
 | `phrase` | string | The phrase to show the user. |
 | `challenge_id` | UUID | Pass to `/verify` to bind the recording to this challenge. |
 | `expires_in` | number | Seconds until this challenge expires (default: 300). |
-| `source` | object | `{ author, year, attribution }` for display. |
 
 ---
 

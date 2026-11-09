@@ -58,16 +58,6 @@
             "type": "integer",
             "example": 300,
             "description": "Seconds until this challenge expires."
-          },
-          "source": {
-            "type": "object",
-            "description": "Attribution metadata for the challenge phrase.",
-            "properties": {
-              "author": { "type": "string", "example": "optional author string" },
-              "year": { "type": "string", "example": "optional year string" },
-              "language": { "type": "string", "example": "en" },
-              "attribution": { "type": "string", "example": "optional display attribution" }
-            }
           }
         }
       },
